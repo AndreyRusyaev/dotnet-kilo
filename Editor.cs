@@ -670,6 +670,11 @@ class Editor
             + $", Column {cursorPosX}"
             + $", screen={screenColumns}x{screenRows}, offset={columnOffset}x{rowOffset}";
 
+        if (statusMessage.Length > screenColumns) 
+        {
+            statusMessage = statusMessage.Substring(0, screenColumns - 3) + "...";
+        }
+
         int padding = 0;
 
         if (!string.IsNullOrEmpty(statusMessage))
