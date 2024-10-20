@@ -55,7 +55,7 @@ dotnet run
 
 * [kiro-editor (Rust)](https://github.com/rhysd/kiro-editor)
 * [kibi (Rust)](https://github.com/ilai-deutel/kibi)
+* [hecto (Rust)](https://github.com/pflenker/hecto-tutorial) via [hecto: Build Your Own Text Editor in Rust](https://www.flenker.blog/hecto/)
 * [gram (Zig)](https://github.com/eightfilms/gram)
 * [kilo.zig (Zig)](https://github.com/h4rr9/kilo.zig)
 * [kilo-in-go (Go)](https://github.com/bediger4000/kilo-in-go)
-* [hecto (Rust)](https://github.com/pflenker/hecto-tutorial) via [hecto: Build Your Own Text Editor in Rust](https://www.flenker.blog/hecto/)
