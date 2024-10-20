@@ -1,14 +1,6 @@
 .Net/C# port of awesome antirez kilo text editor https://github.com/antirez/kilo. Based on another awesome implementation described in [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/).
 Expected to work in Unix and Windows terminals (cmd, powershell, wsl).
 
-## Other remarkable kilo ports/implementations
-
-* [kiro-editor (Rust)](https://github.com/rhysd/kiro-editor)
-* [kibi (Rust)](https://github.com/ilai-deutel/kibi)
-* [gram (Zig)](https://github.com/eightfilms/gram)
-* [kilo.zig (Zig)](https://github.com/h4rr9/kilo.zig)
-* [kilo-in-go (Go)](https://github.com/bediger4000/kilo-in-go)
-
 ## Screens
 
 ![image](https://github.com/user-attachments/assets/4cc6457d-deca-49e0-ae19-64dccc5663cc)
@@ -59,3 +51,10 @@ dotnet run
 * Unicode support
 * Support for Windows terminals (CMD, Powershell, WSL).
 
+## Other remarkable kilo ports/implementations
+
+* [kiro-editor (Rust)](https://github.com/rhysd/kiro-editor)
+* [kibi (Rust)](https://github.com/ilai-deutel/kibi)
+* [gram (Zig)](https://github.com/eightfilms/gram)
+* [kilo.zig (Zig)](https://github.com/h4rr9/kilo.zig)
+* [kilo-in-go (Go)](https://github.com/bediger4000/kilo-in-go)
