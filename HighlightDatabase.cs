@@ -20,7 +20,7 @@ class HighlightDatabase
             ],
             [ 
                 // https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/built-in-types
-                "var", "bool", "byte", "sbyte", "char", "decimal", "double", "float", "int", "uint", "nint", "nuint", "long", "ulong", "short", "ushort", "object", "string", "dynamic"
+                "var", "bool", "byte", "sbyte", "char", "decimal", "double", "float", "int", "uint", "nint", "nuint", "long", "ulong", "short", "ushort", "object", "string", "dynamic", "void"
             ],
             HighlightTypes.Numbers | HighlightTypes.Strings)
     ];
