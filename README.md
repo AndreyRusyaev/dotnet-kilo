@@ -50,6 +50,7 @@ dotnet run
 * abstracted VT100 sequences (see VT100.cs)
 * Unicode support
 * Support for Windows terminals (CMD, Powershell, WSL).
+* Alternate screen mode support (XTERM 1049 mode)
 
 ## Other remarkable kilo ports/implementations
 
