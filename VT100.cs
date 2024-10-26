@@ -142,6 +142,7 @@ class VT100
         Inverted = 7,
 
         // 3-4 bit colors
+        // https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
         ForegroundColor_Black = 30,
 
         ForegroundColor_Red = 31,
@@ -156,23 +157,7 @@ class VT100
 
         ForegroundColor_Cyan = 36,
 
-        ForegroundColor_White = 37,
-
-        ForegroundColor_BrightBlack = 90,
-
-        ForegroundColor_BrightRed = 91,
-
-        ForegroundColor_BrightGreen = 92,
-
-        ForegroundColor_BrightYellow = 93,
-
-        ForegroundColor_BrightBlue = 94,
-
-        ForegroundColor_BrightMagenta = 95,
-
-        ForegroundColor_BrightCyan = 96,
-
-        ForegroundColor_BrightWhite = 97,
+        ForegroundColor_White = 37,        
 
         ForegroundColor_Default = 39,
 
@@ -191,6 +176,24 @@ class VT100
         BackgroundColor_Cyan = 46,
 
         BackgroundColor_White = 47,
+
+        BackgroundColor_Default = 49,
+
+        ForegroundColor_BrightBlack = 90,
+
+        ForegroundColor_BrightRed = 91,
+
+        ForegroundColor_BrightGreen = 92,
+
+        ForegroundColor_BrightYellow = 93,
+
+        ForegroundColor_BrightBlue = 94,
+
+        ForegroundColor_BrightMagenta = 95,
+
+        ForegroundColor_BrightCyan = 96,
+
+        ForegroundColor_BrightWhite = 97,
 
         BackgroundColor_BrightBlack = 100,
 
