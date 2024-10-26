@@ -65,8 +65,7 @@ class Editor
         screenRows = Console.WindowHeight - 2; // 2 additional lines used by status and message bar
         screenColumns = Console.WindowWidth;
 
-        // Console.Write(VT100.EnableKeypadNumericMode());
-        // Console.Write(VT100.ResetPrivateDecMode(VT100.PrivateDecMode.DECCKM));
+        Console.Write(VT100.SwitchToAlternateScreen());
 
         SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
     }
@@ -387,7 +386,7 @@ class Editor
                 }
             }
 
-            return (int)keyCode.Value;
+            return keyCode.Value;
         }
     }
 
@@ -429,8 +428,9 @@ class Editor
                     }
 
                     var builder = new StringBuilder();
+                    builder.Append(VT100.EraseDisplay(2));
                     builder.Append(VT100.SetCursorPosition(1, 1));
-                    builder.Append(VT100.EraseDisplay());
+                    builder.Append(VT100.SwitchToMainScreen());
 
                     Console.Write(builder.ToString());
                     return false;

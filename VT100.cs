@@ -1,5 +1,15 @@
 class VT100
 {
+    public static string SwitchToAlternateScreen()
+    {
+        return SetPrivateMode(PrivateModes.XTERM_ALTSCREEN);
+    }
+
+    public static string SwitchToMainScreen()
+    {
+        return ResetPrivateMode(PrivateModes.XTERM_ALTSCREEN);
+    }
+
     public static string EnableKeypadApplicationMode()
     {
         // https://vt100.net/docs/vt100-ug/chapter3.html#DECKPAM 
@@ -36,12 +46,12 @@ class VT100
 
     public static string HideCursor()
     {
-        return ResetPrivateDecMode(PrivateDecMode.DECTCEM);
+        return ResetPrivateMode(PrivateModes.DECTCEM);
     }
 
     public static string ShowCursor()
     {
-        return SetPrivateDecMode(PrivateDecMode.DECTCEM);
+        return SetPrivateMode(PrivateModes.DECTCEM);
     }
 
     public static string SetCursorPosition(int line, int column)
@@ -87,12 +97,12 @@ class VT100
         return $"\x1b[{mode}l";
     }
 
-    public static string SetPrivateDecMode(int privateDecMode)
+    public static string SetPrivateMode(int privateDecMode)
     {
         return SetMode(privateDecMode, true);
     }
 
-    public static string ResetPrivateDecMode(int privateDecMode)
+    public static string ResetPrivateMode(int privateDecMode)
     {
         return ResetMode(privateDecMode, true);
     }
@@ -199,7 +209,7 @@ class VT100
         BackgroundColor_BrightWhite = 107,
     }
 
-    public static class PrivateDecMode
+    public static class PrivateModes
     {
         // Cursor key mode
         // https://vt100.net/docs/vt100-ug/chapter3.html#DECCKM
@@ -208,5 +218,11 @@ class VT100
         // Text cursor enable
         // https://vt100.net/docs/vt510-rm/DECTCEM.html
         public const int DECTCEM = 25;
+
+        // Alternate screen 
+        // https://invisible-island.net/xterm/xterm.log.html#xterm_90
+        // Older alternate screen modes like (47 and 1047) not supported in Microsoft Terminal
+        // See https://github.com/microsoft/terminal/issues/3082
+        public const int XTERM_ALTSCREEN = 1049;
     }
 }
