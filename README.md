@@ -6,13 +6,31 @@ Expected to work in Unix and Windows terminals (cmd, powershell, wsl).
 ![image](https://github.com/user-attachments/assets/4cc6457d-deca-49e0-ae19-64dccc5663cc)
 
 ## Prerequisites
-.Net 8.0 or higher.
 
-[Install .NET on Windows, Linux, and macOS](https://learn.microsoft.com/en-us/dotnet/core/install/)
+* .NET 8.0 or later
+``` shell
+dotnet --version
+# Expected output: 8.0.X
+```
 
+<details>
+  <summary>HOWTO: Install .NET 8 on Windows, Linux, and macOS</summary>
+  
 ### Windows
 ``` shell
+# run in elevated shell
 winget install Microsoft.DotNet.SDK.8
+```
+
+### Ubuntu
+``` shell
+# Register Microsoft packages feed (https://learn.microsoft.com/en-us/linux/packages)
+wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+
+# installation
+sudo apt update && sudo apt-get install -y dotnet-sdk-8.0
 ```
 
 ### MacOS
@@ -20,24 +38,12 @@ winget install Microsoft.DotNet.SDK.8
 brew install dotnet
 ```
 
-### Ubuntu
-``` shell
-# Add Microsoft package manager feed
-wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-sudo dpkg -i packages-microsoft-prod.deb
-rm packages-microsoft-prod.deb
+### See also
+[Install .NET on Windows, Linux, and macOS](https://learn.microsoft.com/en-us/dotnet/core/install/)
 
-# installation
-sudo apt update
-sudo apt-get install -y dotnet-sdk-8.0
-```
+</details>
 
 ## Usage
-
-Ensure that .Net 8 or later is installed
-```
-dotnet --version
-```
 
 ``` bash
 git clone https://github.com/AndreyRusyaev/dotnet-kilo/
@@ -50,6 +56,7 @@ dotnet run
 * abstracted VT100 sequences (see VT100.cs)
 * Unicode support
 * Support for Windows terminals (CMD, Powershell, WSL).
+* Alternate screen mode support (XTERM 1049 mode)
 
 ## Other remarkable kilo ports/implementations
 
