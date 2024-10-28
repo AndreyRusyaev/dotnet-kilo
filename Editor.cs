@@ -64,8 +64,9 @@ class Editor
     {
         screenRows = Console.WindowHeight - 2; // 2 additional lines used by status and message bar
         screenColumns = Console.WindowWidth;
-
+        
         Console.Write(VT100.SwitchToAlternateScreen());
+        Console.Write(VT100.SaveCursorPosition());
 
         SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
     }
@@ -429,9 +430,9 @@ class Editor
 
                     var builder = new StringBuilder();
                     builder.Append(VT100.EraseDisplay(2));
-                    builder.Append(VT100.SetCursorPosition(1, 1));
+                    builder.Append(VT100.RestoreCursorPosition());
                     builder.Append(VT100.SwitchToMainScreen());
-
+                    
                     Console.Write(builder.ToString());
                     return false;
                 }

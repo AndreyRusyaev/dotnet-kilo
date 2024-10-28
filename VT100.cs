@@ -54,6 +54,20 @@ class VT100
         return SetPrivateMode(PrivateModes.DECTCEM);
     }
 
+    public static string SaveCursorPosition()
+    {
+        // https://vt100.net/docs/vt100-ug/chapter3.html#DECSC
+        // https://vt100.net/docs/vt510-rm/SCOSC.html
+        return "\x1b[s";
+    }
+
+    public static string RestoreCursorPosition()
+    {
+        // https://vt100.net/docs/vt100-ug/chapter3.html#DECRC
+        // https://vt100.net/docs/vt510-rm/SCORC.html
+        return "\x1b[u";
+    }
+
     public static string SetCursorPosition(int line, int column)
     {
         if (line < 1)

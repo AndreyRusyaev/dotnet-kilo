@@ -9,11 +9,11 @@ class UnixRawStdinReader
     
     private const int BytesToBeRead = 1024;
 
-    private Encoding encoding;
+    private readonly Encoding encoding;
 
-    private byte[] bytesBufferToBeRead;
+    private readonly byte[] bytesBufferToBeRead;
 
-    private char[] unprocessedBuffer;    
+    private readonly char[] unprocessedBuffer;    
 
     private int unprocessedBufferStartIndex;
 
@@ -41,7 +41,7 @@ class UnixRawStdinReader
                     var errorCode = Marshal.GetLastSystemError();
                     if (errorCode != EAGAIN)
                     {
-                        throw new Exception($"read failed with code: {errorCode}.");
+                        throw new Exception($"read failed. Error code: {errorCode}.");
                     }
 
                     continue;
