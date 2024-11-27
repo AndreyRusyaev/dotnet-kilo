@@ -10,6 +10,8 @@ internal static partial class RawConsole
 
     private static UnixRawStdinReader stdinReader = new UnixRawStdinReader(Console.InputEncoding);
 
+    private static Action atExitDelegate = new Action(DisableRawModeUnix);
+
     public static char ReadKeyUnix() 
     {
         return stdinReader.ReadChar();
@@ -17,27 +19,27 @@ internal static partial class RawConsole
 
     private static void EnableRawModeUnix()
     {
+        // read current terminal mode
         if (Libc.tcgetattr(STDIN_FILENO, ref origTermios) == -1)
         {
             throw new Exception($"Failed to call tcgetattr. Error code: {Marshal.GetLastSystemError()}.");
         }
 
-        if(Libc.atexit(Marshal.GetFunctionPointerForDelegate(DisableRawModeUnix)) != 0)
+        if(Libc.atexit(Marshal.GetFunctionPointerForDelegate(atExitDelegate)) != 0)
         {
             throw new Exception($"Failed to register exit function (atexit). Error code: {Marshal.GetLastSystemError()}.");
         }
 
-        // make a copy
         Libc.Termios modTermios = origTermios;
         
-        // Enable Raw mode (see man cfmakeraw, /Raw mode)
         MakeRawMode(ref modTermios);
         
-        // Modify blocking parameters for terminal raw mode (return 1 byte or nothing with 100ms timeout).
+        // Modify blocking parameters for terminal raw mode:
+        // return 1 byte or nothing with 100ms timeout (the same way it's done in original kilo).
         modTermios.c_cc[(int)Libc.ControlCharacters.VMIN] = 0;  /* Return each byte, or zero for timeout. */
         modTermios.c_cc[(int)Libc.ControlCharacters.VTIME] = 1; /* 100 ms timeout (unit is tens of second). */
 
-        /* put terminal in raw mode after flushing */
+        // put terminal in raw mode after flushing
         if (Libc.tcsetattr(STDIN_FILENO, (int)Libc.OptionalActions.TCSAFLUSH, ref modTermios) == -1)
         {
             throw new Exception($"Failed to call tcsetattr. Error code: {Marshal.GetLastSystemError()}");
@@ -62,17 +64,35 @@ internal static partial class RawConsole
         isRawModeEnabled = false;
     }
 
-    /// <summary>
-    /// Manual 
-    /// </summary>
-    /// <param name="termios"></param>
     private static void MakeRawMode(ref Libc.Termios termios)
     {
         Libc.cfmakeraw(ref termios);
     }
 
+    private static void MakeRawModeInline(ref Libc.Termios termios)
+    {
+        // input modes: no break, no interrupt on break, ignore parity and framing errors, 
+        // no strip char, no NL to CR, do not ignore CR, no CR to NL, no start/stop output control.
+        termios.c_iflag &= (int)(~(Libc.InputFlags.IGNBRK | Libc.InputFlags.BRKINT | Libc.InputFlags.PARMRK 
+            | Libc.InputFlags.ISTRIP | Libc.InputFlags.INLCR | Libc.InputFlags.IGNCR | Libc.InputFlags.ICRNL | Libc.InputFlags.IXON));
+        // output modes: disable post processing
+        termios.c_oflag &= (int)(~Libc.OutputFlags.OPOST);
+        // local modes: echo off, echo nl off, canonical (kill, erase, etc) off, no signal chars (^Z,^C), no extended functions
+        termios.c_lflag &= (int)(~(Libc.LocalFlags.ECHO | Libc.LocalFlags.ECHONL | Libc.LocalFlags.ICANON 
+            | Libc.LocalFlags.ISIG | Libc.LocalFlags.IEXTEN));
+        // control modes: clear size bit, parity off
+        termios.c_cflag &= (int)(~(Libc.ControlFlags.CSIZE | Libc.ControlFlags.PARENB));
+        // control modes: set 8 bit chars
+        termios.c_cflag |= (int)(Libc.ControlFlags.CS8);
+
+        termios.c_cc[(int)Libc.ControlCharacters.VMIN] = 1; // 1 character
+        termios.c_cc[(int)Libc.ControlCharacters.VTIME] = 0; // infinite timeout
+    }
+
     internal static class Libc
     {
+        // By some reasons libc does not export atexit function
+        // https://stackoverflow.com/questions/43825971/call-atexit-when-linking-to-libc-dynamically-on-linux
         [DllImport("libc", EntryPoint = "__cxa_atexit")]
         public static extern int atexit(IntPtr function);
 
