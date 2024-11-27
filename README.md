@@ -1,5 +1,6 @@
-.Net/C# port of awesome antirez kilo text editor https://github.com/antirez/kilo. Based on another awesome implementation described in [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/).
-Expected to work in Unix and Windows terminals (cmd, powershell, wsl).
+.Net/C# port of awesome antirez kilo text editor https://github.com/antirez/kilo. 
+Based on another awesome implementation described in [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/).
+Expected to work in Unix and Windows terminals (sh, bash, cmd, powershell, wsl).
 
 ## Screens
 
@@ -60,6 +61,7 @@ dotnet run
 
 ## Other remarkable kilo ports/implementations
 
+* [kilo-tutorial (C)](https://github.com/snaptoken/kilo-src/) via [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/)
 * [kiro-editor (Rust)](https://github.com/rhysd/kiro-editor)
 * [kibi (Rust)](https://github.com/ilai-deutel/kibi)
 * [hecto (Rust)](https://github.com/pflenker/hecto-tutorial) via [hecto: Build Your Own Text Editor in Rust](https://www.flenker.blog/hecto/)
