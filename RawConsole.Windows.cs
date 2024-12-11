@@ -5,25 +5,37 @@ internal static partial class RawConsole
 {
     private static char[] windowsKeyBuf = new char[1];
 
+    private static bool isRawModeWindowsEnabled = false;
+
+    private static int originalStdInMode;
+
+    private static int originalStdOutMode;
+
     private static void EnableRawModeWindows()
     {
+        if (isRawModeWindowsEnabled)
+        {
+            // Already enabled. Skip.
+            return;
+        }
+
         var stdIn = Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE);
         var stdOut = Kernel32.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE);
 
-        if (!Kernel32.GetConsoleMode(stdIn, out int nativeInputMode))
+        if (!Kernel32.GetConsoleMode(stdIn, out originalStdInMode))
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
 
-        if (!Kernel32.GetConsoleMode(stdOut, out int nativeOutputMode))
+        if (!Kernel32.GetConsoleMode(stdOut, out originalStdOutMode))
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
-        
-        var originalInputMode = (Kernel32.ConsoleInputModes)nativeInputMode;
-        var originalOutputMode = (Kernel32.ConsoleOutputModes)nativeOutputMode;        
 
-        var newInputMode = originalInputMode;        
+        var originalInputMode = (Kernel32.ConsoleInputModes)originalStdInMode;
+        var originalOutputMode = (Kernel32.ConsoleOutputModes)originalStdOutMode;
+
+        var newInputMode = originalInputMode;
         var newOutputMode = originalOutputMode;
 
         MakeRawInputMode(ref newInputMode);
@@ -38,13 +50,40 @@ internal static partial class RawConsole
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to set stdout console mode.");
         }
+
+        isRawModeWindowsEnabled = true;
+    }
+
+    private static void DisableRawModeWindows()
+    {
+        if (!isRawModeWindowsEnabled)
+        {
+            return;
+        }
+
+        var stdIn = Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE);
+        var stdOut = Kernel32.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE);
+
+        if (!Kernel32.SetConsoleMode(stdIn, originalStdInMode))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to set stdin console mode.");
+        }
+
+        if (!Kernel32.SetConsoleMode(stdOut, originalStdOutMode))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to set stdout console mode.");
+        }
+
+        isRawModeWindowsEnabled = false;
     }
 
     private static char ReadKeyWindows()
     {
-        while(true)
+        var stdIn = Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE);
+
+        while (true)
         {
-            if (!Kernel32.ReadConsoleW(Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE), windowsKeyBuf, 1, out int readBytes, IntPtr.Zero))
+            if (!Kernel32.ReadConsoleW(stdIn, windowsKeyBuf, 1, out int readBytes, IntPtr.Zero))
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
@@ -72,7 +111,7 @@ internal static partial class RawConsole
         outputMode |= Kernel32.ConsoleOutputModes.ENABLE_PROCESSED_OUTPUT;
         outputMode |= Kernel32.ConsoleOutputModes.ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     }
-    
+
     internal static class Kernel32
     {
         public const int STD_INPUT_HANDLE = -10;
@@ -109,12 +148,12 @@ internal static partial class RawConsole
 
         [Flags]
         public enum ConsoleOutputModes : uint
-    {
-        ENABLE_PROCESSED_OUTPUT = 0x0001,
-        ENABLE_WRAP_AT_EOL_OUTPUT = 0x0002,
-        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004,
-        DISABLE_NEWLINE_AUTO_RETURN = 0x0008,
-        ENABLE_LVB_GRID_WORLDWIDE = 0x0010
-    }
+        {
+            ENABLE_PROCESSED_OUTPUT = 0x0001,
+            ENABLE_WRAP_AT_EOL_OUTPUT = 0x0002,
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004,
+            DISABLE_NEWLINE_AUTO_RETURN = 0x0008,
+            ENABLE_LVB_GRID_WORLDWIDE = 0x0010
+        }
     }
 }

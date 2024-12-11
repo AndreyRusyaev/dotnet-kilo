@@ -6,14 +6,14 @@ class UnixRawStdinReader
     private const int STDIN_FILENO = 0;
 
     private const int EAGAIN = 11;
-    
+
     private const int BytesToBeRead = 1024;
 
     private readonly Encoding encoding;
 
     private readonly byte[] bytesBufferToBeRead;
 
-    private readonly char[] unprocessedBuffer;    
+    private readonly char[] unprocessedBuffer;
 
     private int unprocessedBufferStartIndex;
 
@@ -27,9 +27,9 @@ class UnixRawStdinReader
         unprocessedBuffer = new char[encoding.GetMaxCharCount(BytesToBeRead)];
         unprocessedBufferStartIndex = 0;
         unprocessedBufferEndIndex = 0;
-    }    
+    }
 
-    public char ReadChar() 
+    public char ReadChar()
     {
         if (unprocessedBufferStartIndex >= unprocessedBufferEndIndex)
         {

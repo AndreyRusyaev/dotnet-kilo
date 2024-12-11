@@ -64,7 +64,7 @@ class Editor
     {
         screenRows = Console.WindowHeight - 2; // 2 additional lines used by status and message bar
         screenColumns = Console.WindowWidth;
-        
+
         Console.Write(VT100.SwitchToAlternateScreen());
         Console.Write(VT100.SaveCursorPosition());
 
@@ -80,25 +80,11 @@ class Editor
             return;
         }
 
-        var extension = Path.GetExtension(fileName);
-        foreach (var entry in HighlightDatabase.Entries)
-        {
-            foreach (var fileMatch in entry.FileMatches)
-            {
-                var isMatchWithExtension = fileMatch.Length > 0 && fileMatch[0] == '.';
-
-                if ((isMatchWithExtension && string.CompareOrdinal(extension, fileMatch) == 0)
-                    || (!isMatchWithExtension && string.CompareOrdinal(fileName, fileMatch) == 0))
-                {
-                    editorSyntax = entry;
-                    break;
-                }
-            }
-        }
-
+        editorSyntax = HighlightDatabase.ResolveSyntax(fileName);
+        
         foreach (var editorRow in editorRows)
         {
-            editorRow.UpdateRow(new EditorContext(this));
+            UpdateSyntax(editorRow);
         }
     }
 
@@ -162,7 +148,7 @@ class Editor
         if (findSavedLine != null)
         {
             var editorRow = editorRows[findSavedLine.Value];
-            editorRow.UpdateRow(new EditorContext(this));
+            UpdateRow(editorRow);
             findSavedLine = null;
         }
 
@@ -207,15 +193,15 @@ class Editor
 
             var editorRow = editorRows[current];
 
-            var renderIndex = editorRow.Find(query);
-            if (renderIndex != -1)
+            var resultIndex = editorRow.Find(query);
+            if (resultIndex != -1)
             {
                 findLastMatch = current;
                 findSavedLine = current;
                 cursorPosY = current;
-                cursorPosX = editorRow.ToCharPosX(renderIndex);
+                cursorPosX = resultIndex;
                 rowOffset = editorRows.Count;
-                editorRow.SetHighlight(renderIndex, query.Length, HighlightMode.Match);
+                editorRow.SetHighlightRange(resultIndex, query.Length, HighlightMode.Match);
                 break;
             }
         }
@@ -408,7 +394,7 @@ class Editor
                 {
                     MoveCursor(ExtendedKeyCodes.ARROW_RIGHT);
                 }
-                DelChar();
+                RemoveChar();
                 break;
 
             case ExtendedKeyCodes.CTRL_S:
@@ -432,7 +418,7 @@ class Editor
                     builder.Append(VT100.EraseDisplay(2));
                     builder.Append(VT100.RestoreCursorPosition());
                     builder.Append(VT100.SwitchToMainScreen());
-                    
+
                     Console.Write(builder.ToString());
                     return false;
                 }
@@ -564,7 +550,7 @@ class Editor
         renderPosY = cursorPosY;
         if (cursorPosY < editorRows.Count)
         {
-            renderPosX = editorRows[cursorPosY].ToRenderPosX(cursorPosX);
+            renderPosX = editorRows[cursorPosY].GetRenderIndex(cursorPosX);
         }
 
         if (renderPosY < rowOffset)
@@ -671,7 +657,7 @@ class Editor
             + $", Column {cursorPosX}"
             + $", screen={screenColumns}x{screenRows}, offset={columnOffset}x{rowOffset}";
 
-        if (statusMessage.Length > screenColumns) 
+        if (statusMessage.Length > screenColumns)
         {
             statusMessage = statusMessage.Substring(0, screenColumns - 3) + "...";
         }
@@ -716,6 +702,289 @@ class Editor
         }
     }
 
+    void UpdateRow(EditorRow editorRow)
+    {
+        editorRow.UpdateRow();
+
+        UpdateSyntax(editorRow);
+    }
+
+    void InsertRow(int position, IEnumerable<char> chars)
+    {
+        var editorRow = new EditorRow(editorSettings, position, chars);
+        editorRows.Insert(position, editorRow);
+
+        for (int rowIndex = position + 1; rowIndex < editorRows.Count; rowIndex += 1)
+        {
+            editorRows[rowIndex].RowIndex = rowIndex;
+        }
+
+        UpdateRow(editorRow);
+        dirty += 1;
+    }
+
+    void AppendRow(IEnumerable<char> chars)
+    {
+        var editorRow = new EditorRow(editorSettings, editorRows.Count, chars);
+        editorRows.Add(editorRow);
+        UpdateRow(editorRow);
+        dirty += 1;
+    }
+
+    void RemoveRow(int position)
+    {
+        if (position < 0 || position > editorRows.Count)
+        {
+            return;
+        }
+
+        editorRows.RemoveAt(position);
+
+        for (int rowIndex = position; rowIndex < editorRows.Count; rowIndex += 1)
+        {
+            editorRows[rowIndex].RowIndex = rowIndex;
+        }
+
+        dirty += 1;
+    }
+
+    void InsertNewLine()
+    {
+        if (cursorPosX == 0)
+        {
+            InsertRow(cursorPosY, Array.Empty<char>());
+        }
+        else
+        {
+            var currentRow = editorRows[cursorPosY];
+            InsertRow(cursorPosY + 1, currentRow.Chars.Skip(cursorPosX).Take(currentRow.CharSize - cursorPosX).ToArray());
+            currentRow.Truncate(cursorPosX);
+            UpdateRow(currentRow);
+        }
+
+        cursorPosX = 0;
+        cursorPosY += 1;
+    }
+
+    void InsertChar(char ch)
+    {
+        if (cursorPosY == editorRows.Count)
+        {
+            AppendRow("");
+        }
+
+        var currentRow = editorRows[cursorPosY];
+        currentRow.InsertCharAt(cursorPosX, ch);
+        UpdateRow(currentRow);
+        cursorPosX += 1;
+        dirty += 1;
+    }
+
+    void RemoveChar()
+    {
+        if (cursorPosY >= editorRows.Count)
+        {
+            return;
+        }
+
+        if (cursorPosX == 0 && cursorPosY == 0)
+        {
+            return;
+        }
+
+        var currentRow = editorRows[cursorPosY];
+
+        if (cursorPosX > 0)
+        {
+            currentRow.RemoveCharAt(cursorPosX - 1);
+            UpdateRow(currentRow);
+            cursorPosX -= 1;
+        }
+        else
+        {
+            var prevRow = editorRows[cursorPosY - 1];
+            var originalSize = prevRow.CharSize;
+
+            prevRow.Append(currentRow.Chars);
+            RemoveRow(cursorPosY);
+            UpdateRow(prevRow);
+
+            cursorPosX = originalSize;
+            cursorPosY -= 1;
+        }
+
+        dirty += 1;
+    }
+
+    private void UpdateSyntax(EditorRow editorRow)
+    {
+        if (editorSyntax == null)
+        {
+            return;
+        }
+
+        bool prevSeparator = true;
+        char? isInString = null;
+        bool isInMultiLineComment = editorRow.RowIndex > 0 ? editorRows[editorRow.RowIndex - 1].HasHighlightOpenComment : false;
+
+        for (int renderIndex = 0; renderIndex < editorRow.RenderChars.Count; renderIndex += 1)
+        {
+            var renderChar = editorRow.RenderChars[renderIndex];
+            var prevHighlightMode = renderIndex > 0 ? editorRow.HighlightModes[renderIndex - 1] : HighlightMode.Normal;
+
+            if (editorSyntax.SingleLineCommentStart != null 
+                && editorSyntax.SingleLineCommentStart.Length > 0 
+                && isInString == null 
+                && !isInMultiLineComment)
+            {
+                if (editorRow.StartsWithAtPosition(editorSyntax.SingleLineCommentStart, renderIndex))
+                {
+                    editorRow.SetHighlightRange(renderIndex, HighlightMode.Comment);
+                    break;
+                }
+            }
+
+            if (editorSyntax.MultiLineCommentStart != null && editorSyntax.MultiLineCommentStart.Length > 0
+                && editorSyntax.MultiLineCommentEnd != null && editorSyntax.MultiLineCommentEnd.Length > 0
+                && isInString == null)
+            {
+                if (isInMultiLineComment)
+                {
+                    editorRow.SetHighlightRange(renderIndex, HighlightMode.MultiLineComment);
+
+                    if (editorRow.StartsWithAtPosition(editorSyntax.MultiLineCommentEnd, renderIndex))
+                    {
+                        editorRow.SetHighlightRange(renderIndex, editorSyntax.MultiLineCommentEnd.Length, HighlightMode.MultiLineComment);
+                        renderIndex += editorSyntax.MultiLineCommentEnd.Length - 1;
+
+                        isInMultiLineComment = false;
+                        prevSeparator = true;
+                        continue;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (editorRow.StartsWithAtPosition(editorSyntax.MultiLineCommentStart, renderIndex))
+                    {
+                        editorRow.SetHighlightRange(renderIndex, editorSyntax.MultiLineCommentStart.Length, HighlightMode.MultiLineComment);
+                        renderIndex += editorSyntax.MultiLineCommentStart.Length - 1;
+
+                        isInMultiLineComment = true;
+                        prevSeparator = false;
+                        continue;
+                    }
+                }
+            }
+
+            if ((editorSyntax.HighlightTypes & HighlightTypes.Strings) != 0)
+            {
+                if (isInString != null)
+                {
+                    editorRow.SetHighlightAt(renderIndex, HighlightMode.String);
+                    if (renderChar == '\\' && renderIndex + 1 < editorRow.RenderChars.Count)
+                    {
+                        editorRow.SetHighlightAt(renderIndex + 1, HighlightMode.String);
+                        renderIndex += 1;
+                        continue;
+                    }
+
+                    if (renderChar == isInString.Value)
+                    {
+                        isInString = null;
+                    }
+
+                    prevSeparator = true;
+                    continue;
+                }
+                else
+                {
+                    if (renderChar == '"' || renderChar == '\'')
+                    {
+                        isInString = renderChar;
+                        editorRow.SetHighlightAt(renderIndex, HighlightMode.String);
+                        continue;
+                    }
+                }
+            }
+
+            if ((editorSyntax.HighlightTypes & HighlightTypes.Numbers) != 0)
+            {
+                if (char.IsDigit(renderChar)
+                    && (prevSeparator || prevHighlightMode == HighlightMode.Number)
+                    || (renderChar == '.' && prevHighlightMode == HighlightMode.Number))
+                {
+                    if (renderIndex > 0 && (editorRow.RenderChars[renderIndex - 1] == '-' || editorRow.RenderChars[renderIndex - 1] == '+'))
+                    {
+                        editorRow.SetHighlightAt(renderIndex - 1, HighlightMode.Number);
+                    }
+
+                    editorRow.SetHighlightAt(renderIndex, HighlightMode.Number);
+                }
+            }
+
+            if (prevSeparator)
+            {
+                foreach (var keyword1 in editorSyntax.Keyword1Items)
+                {
+                    if (!editorRow.StartsWithAtPosition(keyword1, renderIndex))
+                    {
+                        continue;
+                    }
+
+                    char? nextChar = renderIndex + keyword1.Length < editorRow.RenderChars.Count ? editorRow.RenderChars[renderIndex + keyword1.Length] : null;
+                    if (nextChar == null || IsCharSeparator(nextChar.Value))
+                    {
+                        editorRow.SetHighlightRange(renderIndex, keyword1.Length, HighlightMode.Keyword1);
+                        renderIndex += keyword1.Length - 1;
+                        break;
+                    }
+                }
+
+                foreach (var keyword2 in editorSyntax.Keyword2Items)
+                {
+                    if (!editorRow.StartsWithAtPosition(keyword2, renderIndex))
+                    {
+                        continue;
+                    }
+                    
+                    char? nextChar = renderIndex + keyword2.Length < editorRow.RenderChars.Count ? editorRow.RenderChars[renderIndex + keyword2.Length] : null;
+                    if (nextChar == null || IsCharSeparator(nextChar.Value) || nextChar == '?')
+                    {
+                        editorRow.SetHighlightRange(renderIndex, keyword2.Length, HighlightMode.Keyword2);
+                        renderIndex += keyword2.Length - 1;
+
+                        if (nextChar == '?')
+                        {
+                            editorRow.SetHighlightAt(renderIndex, HighlightMode.Keyword2);
+                            renderIndex += 1;
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            prevSeparator = IsCharSeparator(renderChar);
+        }
+
+        bool isChanged = editorRow.HasHighlightOpenComment != isInMultiLineComment;
+        editorRow.HasHighlightOpenComment = isInMultiLineComment;
+
+        if (isChanged && editorRow.RowIndex + 1 < editorRows.Count)
+        {
+            UpdateSyntax(editorRows[editorRow.RowIndex + 1]);
+        }
+    }
+
+    private bool IsCharSeparator(char ch)
+    {
+        return char.IsSeparator(ch) || ",.()+-/*=~%<>[];".IndexOf(ch) != -1;
+    }    
+
     VT100.GraphicRendition SyntaxToForegroundColor(HighlightMode highlightMode)
     {
         switch (highlightMode)
@@ -736,117 +1005,5 @@ class Editor
             default:
                 return VT100.GraphicRendition.ForegroundColor_Default;
         }
-    }
-
-    void UpdateRow(EditorRow row)
-    {
-        row.UpdateRow(new EditorContext(this));
-    }
-
-    void InsertRow(int position, IEnumerable<char> chars)
-    {
-        var editorRow = new EditorRow(editorSettings, position, chars);
-        editorRows.Insert(position, editorRow);
-
-        for (int rowIndex = position + 1; rowIndex < editorRows.Count; rowIndex += 1)
-        {
-            editorRows[rowIndex].Index = rowIndex;
-        }
-
-        editorRow.UpdateRow(new EditorContext(this));
-        dirty += 1;
-    }
-
-    void AppendRow(IEnumerable<char> chars)
-    {
-        var editorRow = new EditorRow(editorSettings, editorRows.Count, chars);
-        editorRows.Add(editorRow);
-        editorRow.UpdateRow(new EditorContext(this));
-        dirty += 1;
-    }
-
-    void DelRow(int position)
-    {
-        if (position < 0 || position > editorRows.Count)
-        {
-            return;
-        }
-
-        editorRows.RemoveAt(position);
-
-        for (int rowIndex = position; rowIndex < editorRows.Count; rowIndex += 1)
-        {
-            editorRows[rowIndex].Index = rowIndex;
-        }
-
-        dirty += 1;
-    }
-
-    void InsertNewLine()
-    {
-        if (cursorPosX == 0)
-        {
-            InsertRow(cursorPosY, Array.Empty<char>());
-        }
-        else
-        {
-            var currentRow = editorRows[cursorPosY];
-            InsertRow(cursorPosY + 1, currentRow.Chars.Skip(cursorPosX).Take(currentRow.CharSize - cursorPosX).ToArray());
-            currentRow.Truncate(cursorPosX);
-            currentRow.UpdateRow(new EditorContext(this));
-        }
-
-        cursorPosX = 0;
-        cursorPosY += 1;
-    }
-
-    void InsertChar(char ch)
-    {
-        if (cursorPosY == editorRows.Count)
-        {
-            AppendRow("");
-        }
-
-        var currentRow = editorRows[cursorPosY];
-        currentRow.InsertChar(cursorPosX, ch);
-        currentRow.UpdateRow(new EditorContext(this));
-        cursorPosX += 1;
-        dirty += 1;
-    }
-
-    void DelChar()
-    {
-        if (cursorPosY >= editorRows.Count)
-        {
-            return;
-        }
-
-        if (cursorPosX == 0 && cursorPosY == 0)
-        {
-            return;
-        }
-
-        var currentRow = editorRows[cursorPosY];
-
-        if (cursorPosX > 0)
-        {
-            currentRow.RemoveChar(cursorPosX - 1);
-            currentRow.UpdateRow(new EditorContext(this));
-            cursorPosX -= 1;
-        }
-        else
-        {
-            var prevRow = editorRows[cursorPosY - 1];
-            var originalSize = prevRow.CharSize;
-
-            prevRow.AppendString(currentRow.Chars);
-            DelRow(cursorPosY);
-            prevRow.UpdateRow(new EditorContext(this));
-
-            cursorPosX = originalSize;
-            cursorPosY -= 1;
-        }
-
-        dirty += 1;
     }
 }

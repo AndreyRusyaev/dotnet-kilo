@@ -4,36 +4,42 @@ internal static partial class RawConsole
 {
     private const int STDIN_FILENO = 0;
 
-    private static bool isRawModeEnabled = false;
+    private static bool isRawModeUnixEnabled = false;
 
-    private static Libc.Termios origTermios;
+    private static Libc.Termios originalTermios;
 
     private static UnixRawStdinReader stdinReader = new UnixRawStdinReader(Console.InputEncoding);
 
     private static Action atExitDelegate = new Action(DisableRawModeUnix);
 
-    public static char ReadKeyUnix() 
+    public static char ReadKeyUnix()
     {
         return stdinReader.ReadChar();
     }
 
     private static void EnableRawModeUnix()
     {
+        if (isRawModeUnixEnabled)
+        {
+            // Already enabled. Skip.
+            return;
+        }
+
         // read current terminal mode
-        if (Libc.tcgetattr(STDIN_FILENO, ref origTermios) == -1)
+        if (Libc.tcgetattr(STDIN_FILENO, ref originalTermios) == -1)
         {
             throw new Exception($"Failed to call tcgetattr. Error code: {Marshal.GetLastSystemError()}.");
         }
 
-        if(Libc.atexit(Marshal.GetFunctionPointerForDelegate(atExitDelegate)) != 0)
+        if (Libc.atexit(Marshal.GetFunctionPointerForDelegate(atExitDelegate)) != 0)
         {
             throw new Exception($"Failed to register exit function (atexit). Error code: {Marshal.GetLastSystemError()}.");
         }
 
-        Libc.Termios modTermios = origTermios;
-        
+        Libc.Termios modTermios = originalTermios;
+
         MakeRawMode(ref modTermios);
-        
+
         // Modify blocking parameters for terminal raw mode:
         // return 1 byte or nothing with 100ms timeout (the same way it's done in original kilo).
         modTermios.c_cc[(int)Libc.ControlCharacters.VMIN] = 0;  /* Return each byte, or zero for timeout. */
@@ -45,23 +51,23 @@ internal static partial class RawConsole
             throw new Exception($"Failed to call tcsetattr. Error code: {Marshal.GetLastSystemError()}");
         }
 
-        isRawModeEnabled = true;
+        isRawModeUnixEnabled = true;
     }
 
     private static void DisableRawModeUnix()
     {
-        if (!isRawModeEnabled)
+        if (!isRawModeUnixEnabled)
         {
             // Wasn't enabled. Skip.
             return;
         }
 
-        if (Libc.tcsetattr(STDIN_FILENO, (int)Libc.OptionalActions.TCSAFLUSH, ref origTermios) == -1)
+        if (Libc.tcsetattr(STDIN_FILENO, (int)Libc.OptionalActions.TCSAFLUSH, ref originalTermios) == -1)
         {
             throw new Exception($"Failed to call tcsetattr. Error code: {Marshal.GetLastSystemError()}");
         }
 
-        isRawModeEnabled = false;
+        isRawModeUnixEnabled = false;
     }
 
     private static void MakeRawMode(ref Libc.Termios termios)
@@ -73,12 +79,12 @@ internal static partial class RawConsole
     {
         // input modes: no break, no interrupt on break, ignore parity and framing errors, 
         // no strip char, no NL to CR, do not ignore CR, no CR to NL, no start/stop output control.
-        termios.c_iflag &= (int)(~(Libc.InputFlags.IGNBRK | Libc.InputFlags.BRKINT | Libc.InputFlags.PARMRK 
+        termios.c_iflag &= (int)(~(Libc.InputFlags.IGNBRK | Libc.InputFlags.BRKINT | Libc.InputFlags.PARMRK
             | Libc.InputFlags.ISTRIP | Libc.InputFlags.INLCR | Libc.InputFlags.IGNCR | Libc.InputFlags.ICRNL | Libc.InputFlags.IXON));
         // output modes: disable post processing
         termios.c_oflag &= (int)(~Libc.OutputFlags.OPOST);
         // local modes: echo off, echo nl off, canonical (kill, erase, etc) off, no signal chars (^Z,^C), no extended functions
-        termios.c_lflag &= (int)(~(Libc.LocalFlags.ECHO | Libc.LocalFlags.ECHONL | Libc.LocalFlags.ICANON 
+        termios.c_lflag &= (int)(~(Libc.LocalFlags.ECHO | Libc.LocalFlags.ECHONL | Libc.LocalFlags.ICANON
             | Libc.LocalFlags.ISIG | Libc.LocalFlags.IEXTEN));
         // control modes: clear size bit, parity off
         termios.c_cflag &= (int)(~(Libc.ControlFlags.CSIZE | Libc.ControlFlags.PARENB));
@@ -272,15 +278,15 @@ internal static partial class RawConsole
         }
 
         public enum OptionalActions
-    {
-        /* Change immediately.  */
-        TCSANOW = 0,
-        /* Change when pending output is written.  */
-        TCSADRAIN = 1,
-        /* Flush pending input before changing.  */
-        TCSAFLUSH = 2,
-        /* Flag: Don't alter hardware state.  */
-        TCSASOFT = 0x10
-    }
+        {
+            /* Change immediately.  */
+            TCSANOW = 0,
+            /* Change when pending output is written.  */
+            TCSADRAIN = 1,
+            /* Flush pending input before changing.  */
+            TCSAFLUSH = 2,
+            /* Flag: Don't alter hardware state.  */
+            TCSASOFT = 0x10
+        }
     }
 }
