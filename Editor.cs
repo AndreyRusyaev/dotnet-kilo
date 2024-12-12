@@ -281,7 +281,7 @@ class Editor
             else
             {
                 char keyChar = (char)keyCode;
-                if (!char.IsControl(keyChar) && keyChar < 128)
+                if (!char.IsControl(keyChar))
                 {
                     result.Append(keyChar);
                 }

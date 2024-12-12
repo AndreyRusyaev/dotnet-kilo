@@ -3,8 +3,6 @@ using System.Runtime.InteropServices;
 
 internal static partial class RawConsole
 {
-    private static char[] windowsKeyBuf = new char[1];
-
     private static bool isRawModeWindowsEnabled = false;
 
     private static int originalStdInMode;
@@ -77,23 +75,28 @@ internal static partial class RawConsole
         isRawModeWindowsEnabled = false;
     }
 
-    private static char ReadKeyWindows()
+    private static char? ReadKeyWindows()
     {
         var stdIn = Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE);
 
+        Kernel32.INPUT_RECORD winInputRecord = new Kernel32.INPUT_RECORD();
+
         while (true)
         {
-            if (!Kernel32.ReadConsoleW(stdIn, windowsKeyBuf, 1, out int readBytes, IntPtr.Zero))
+            if (!Kernel32.ReadConsoleInputExW(stdIn, ref winInputRecord, 1, out int readEvents, Kernel32.CONSOLE_READ_FLAGS.CONSOLE_READ_NOWAIT))
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
 
-            if (readBytes == 0)
+            if (readEvents == 0)
             {
-                continue;
+                return null;
             }
 
-            return windowsKeyBuf[0];
+            if (winInputRecord.EventType == Kernel32.INPUT_RECORD_EVENT_TYPES.KEY_EVENT)
+            {
+                return (char)winInputRecord.KeyEvent.uChar;
+            }
         }
     }
 
@@ -129,7 +132,12 @@ internal static partial class RawConsole
         public static extern bool SetConsoleMode(IntPtr hConsoleHandle, int dwMode);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern bool ReadConsoleW(IntPtr hConsoleHandle, char[] buffer, int nNumberOfCharsToRead, out int lpNumberOfCharsRead, IntPtr pInputControl);
+        public static extern bool ReadConsoleInputExW(
+            IntPtr hConsoleHandle,
+            ref INPUT_RECORD lpBuffer,
+            int nLength_ShouldBeExactlyOne,
+            out int lpNumberOfEventsRead,
+            CONSOLE_READ_FLAGS wFlags);
 
         [Flags]
         public enum ConsoleInputModes : uint
@@ -154,6 +162,76 @@ internal static partial class RawConsole
             ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004,
             DISABLE_NEWLINE_AUTO_RETURN = 0x0008,
             ENABLE_LVB_GRID_WORLDWIDE = 0x0010
+        }
+    
+        [StructLayout(LayoutKind.Explicit)]
+        public struct INPUT_RECORD 
+        {
+            [FieldOffset(0)]
+            public INPUT_RECORD_EVENT_TYPES EventType;
+
+            [FieldOffset(4)]
+            public KEY_EVENT_RECORD KeyEvent;
+
+            [FieldOffset(4)]
+            public MOUSE_EVENT_RECORD MouseEvent;
+
+            [FieldOffset(4)]
+            public WINDOW_BUFFER_SIZE_RECORD WindowBufferSizeEvent;
+
+            [FieldOffset(4)]
+            public MENU_EVENT_RECORD MenuEvent;
+
+            [FieldOffset(4)]
+            public FOCUS_EVENT_RECORD FocusEvent;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct KEY_EVENT_RECORD
+        {
+            public bool bKeyDown;
+            public ushort wRepeatCount;
+            public ushort wVirtualKeyCode;
+            public ushort wVirtualScanCode;
+            public ushort uChar; // union { WCHAR UnicodeChar; CHAR  AsciiChar; } uChar;
+            public uint dwControlKeyState;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSE_EVENT_RECORD
+        {
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MENU_EVENT_RECORD
+        {
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct FOCUS_EVENT_RECORD
+        {            
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WINDOW_BUFFER_SIZE_RECORD
+        {            
+        }
+
+        public enum INPUT_RECORD_EVENT_TYPES : ushort
+        {
+            KEY_EVENT  = 0x1,
+            MOUSE_EVENT = 0x2,
+            WINDOW_BUFFER_SIZE_EVENT = 0x4,
+            FOCUS_EVENT = 0x10,
+            MENU_EVENT = 0x8
+        }
+
+        [Flags]
+        public enum CONSOLE_READ_FLAGS : ushort
+        {
+            NONE = 0,
+            CONSOLE_READ_NOREMOVE = 0x0001,
+            CONSOLE_READ_NOWAIT      = 0x0002
         }
     }
 }

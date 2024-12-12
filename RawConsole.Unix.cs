@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 internal static partial class RawConsole
 {
@@ -8,11 +9,11 @@ internal static partial class RawConsole
 
     private static Libc.Termios originalTermios;
 
-    private static UnixRawStdinReader stdinReader = new UnixRawStdinReader(Console.InputEncoding);
+    private static StdinReader stdinReader = new StdinReader(Console.InputEncoding);
 
     private static Action atExitDelegate = new Action(DisableRawModeUnix);
 
-    public static char ReadKeyUnix()
+    public static char? ReadKeyUnix()
     {
         return stdinReader.ReadChar();
     }
@@ -95,6 +96,73 @@ internal static partial class RawConsole
         termios.c_cc[(int)Libc.ControlCharacters.VTIME] = 0; // infinite timeout
     }
 
+    /// <summary>
+    /// Allows to read chars from stdin in the specified encoding.
+    /// </summary>
+    internal class StdinReader
+    {
+        private const int STDIN_FILENO = 0;
+
+        private const int EAGAIN = 11;
+
+        private const int BytesToBeRead = 1024;
+
+        private readonly Encoding encoding;
+
+        private readonly byte[] bytesBufferToBeRead;
+
+        private readonly char[] unprocessedBuffer;
+
+        private int unprocessedBufferStartIndex;
+
+        private int unprocessedBufferEndIndex;
+
+        public StdinReader(Encoding encoding)
+        {
+            this.encoding = encoding;
+
+            bytesBufferToBeRead = new byte[BytesToBeRead];
+            unprocessedBuffer = new char[encoding.GetMaxCharCount(BytesToBeRead)];
+            unprocessedBufferStartIndex = 0;
+            unprocessedBufferEndIndex = 0;
+        }
+
+        public char? ReadChar()
+        {
+            if (unprocessedBufferStartIndex >= unprocessedBufferEndIndex)
+            {
+                while (true)
+                {
+                    int bytesRead = Libc.read(STDIN_FILENO, bytesBufferToBeRead, BytesToBeRead);
+                    if (bytesRead == -1)
+                    {
+                        var errorCode = Marshal.GetLastSystemError();
+                        if (errorCode != EAGAIN)
+                        {
+                            throw new Exception($"read failed. Error code: {errorCode}.");
+                        }
+
+                        continue;
+                    }
+
+                    if (bytesRead > 0)
+                    {
+                        unprocessedBufferStartIndex = 0;
+                        unprocessedBufferEndIndex = encoding.GetChars(bytesBufferToBeRead, 0, bytesRead, unprocessedBuffer, 0);
+                        break;
+                    }
+
+                    if (bytesRead == 0)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            return unprocessedBuffer[unprocessedBufferStartIndex++];
+        }
+    }
+
     internal static class Libc
     {
         // By some reasons libc does not export atexit function
@@ -109,11 +177,21 @@ internal static partial class RawConsole
         public static extern int tcsetattr(int fd, int optional_actions, ref Termios termios);
 
         /// <summary>
-        /// Set termious to indicate raw mode.
+        /// cfmakeraw()  sets  the  terminal  to something like the "raw" mode of the old Version 7 terminal driver: input is available
+        /// character by character, echoing is disabled, and all special processing of terminal input and  output  characters  is  disabled.
+        /// The terminal attributes are set as follows:
+        // termios_p->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+        // termios_p->c_oflag &= ~OPOST;
+        // termios_p->c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+        // termios_p->c_cflag &= ~(CSIZE | PARENB);
+        // termios_p->c_cflag |= CS8;
         /// </summary>
         /// <param name="termios"></param>
         [DllImport("libc")]
         public static extern void cfmakeraw(ref Termios termios);
+
+        [DllImport("libc", SetLastError = true)]
+        public static extern int read(int fd, byte[] buf, int count);
 
         /// <summary>
         /// TODO: This struct layout is platform dependent
