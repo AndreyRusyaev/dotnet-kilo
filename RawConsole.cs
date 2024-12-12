@@ -1,18 +1,24 @@
+using System.Runtime.InteropServices;
+
 internal static partial class RawConsole
 {
     public static IDisposable EnableRawMode()
     {
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            EnableRawModeWindows();
+            RawConsoleWindows.EnableRawMode();
         }
-        else if (Environment.OSVersion.Platform == PlatformID.Unix)
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            EnableRawModeUnix();
+            RawConsoleLinux.EnableRawMode();
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            RawConsoleMac.EnableRawMode();
         }
         else
         {
-            throw new NotSupportedException($"Platform '{Environment.OSVersion.Platform}' is not supported.");
+            throw new NotSupportedException($"Platform '{RuntimeInformation.OSDescription}' is not supported.");
         }
 
         return new RawConsoleModeHandle(DisableRawMode);
@@ -20,29 +26,37 @@ internal static partial class RawConsole
 
     public static void DisableRawMode()
     {
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            DisableRawModeWindows();
+            RawConsoleWindows.DisableRawMode();
         }
-        else if (Environment.OSVersion.Platform == PlatformID.Unix)
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            DisableRawModeUnix();
+            RawConsoleLinux.DisableRawMode();
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            RawConsoleMac.DisableRawMode();
         }
         else
         {
-            throw new NotSupportedException($"Platform '{Environment.OSVersion.Platform}' is not supported.");
+            throw new NotSupportedException($"Platform '{RuntimeInformation.OSDescription}' is not supported.");
         }
     }
 
     public static char? ReadKey()
     {
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return ReadKeyWindows();
+            return RawConsoleWindows.ReadKey();
         }
-        else if (Environment.OSVersion.Platform == PlatformID.Unix)
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return ReadKeyUnix();
+            return RawConsoleLinux.ReadKey();
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return RawConsoleMac.ReadKey();
         }
         else 
         {
