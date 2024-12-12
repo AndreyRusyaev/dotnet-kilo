@@ -1,6 +1,6 @@
 .Net/C# port of awesome antirez kilo text editor https://github.com/antirez/kilo. 
 Based on another awesome implementation described in [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/).
-Expected to work in Unix and Windows terminals (sh, bash, cmd, powershell, wsl).
+Works in Linux, MacOS and Windows terminals (sh, bash, zsh, cmd, powershell, etc.).
 
 ## Screens
 
@@ -54,12 +54,12 @@ dotnet run
 
 ## Changes
 
-* abstracted VT100 sequences (see VT100.cs)
-* Unicode support
-* Support for Windows terminals (CMD, Powershell, WSL).
+* Basic unicode support
+* Added support for Windows terminals (CMD, Powershell, WSL).
 * Alternate screen mode support (XTERM 1049 mode)
+* Abstracted VT100 sequences (see VT100.cs)
 
-## Other remarkable kilo ports/implementations
+## List of remarkable kilo ports/implementations
 
 * [kilo-tutorial (C)](https://github.com/snaptoken/kilo-src/) via [Build Your Own Text Editor](https://viewsourcecode.org/snaptoken/kilo/)
 * [kiro-editor (Rust)](https://github.com/rhysd/kiro-editor)
