@@ -22,6 +22,16 @@ class VT100
         return $"\x1b>";
     }
 
+    public static string EnableAutoWrapMode()
+    {
+        return SetPrivateMode(PrivateModes.DECAWM);
+    }
+
+    public static string DisableAutoWrapMode()
+    {
+        return ResetPrivateMode(PrivateModes.DECAWM);
+    }
+
     public static string EraseDisplay(int ps = 0)
     {
         // Erase in Display https://vt100.net/docs/vt100-ug/chapter3.html#ED
@@ -231,6 +241,10 @@ class VT100
         // Cursor key mode
         // https://vt100.net/docs/vt100-ug/chapter3.html#DECCKM
         public const int DECCKM = 1;
+
+        // Autowrap Mode
+        // https://vt100.net/docs/vt100-ug/chapter3.html#DECAWM
+        public const int DECAWM = 7;
 
         // Text cursor enable
         // https://vt100.net/docs/vt510-rm/DECTCEM.html

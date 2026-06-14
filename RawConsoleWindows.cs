@@ -102,17 +102,24 @@ internal static class RawConsoleWindows
 
     private static void MakeRawInputMode(ref Kernel32.ConsoleInputModes inputMode)
     {
+        // ensure disabled
         inputMode &= ~Kernel32.ConsoleInputModes.ENABLE_ECHO_INPUT;
         inputMode &= ~Kernel32.ConsoleInputModes.ENABLE_LINE_INPUT;
         inputMode &= ~Kernel32.ConsoleInputModes.ENABLE_PROCESSED_INPUT;
+
+        // ensure enabled: VT's sequences interpreted
         inputMode |= Kernel32.ConsoleInputModes.ENABLE_VIRTUAL_TERMINAL_INPUT;
     }
 
     private static void MakeRawOutputMode(ref Kernel32.ConsoleOutputModes outputMode)
     {
+        // ensure disabled: wrapping
         outputMode &= ~Kernel32.ConsoleOutputModes.ENABLE_WRAP_AT_EOL_OUTPUT;
+
+        // ensure enabled: Control sequences interpreted (like tab, backspace, bell, etc.), VT's sequences interpreted, 
         outputMode |= Kernel32.ConsoleOutputModes.ENABLE_PROCESSED_OUTPUT;
         outputMode |= Kernel32.ConsoleOutputModes.ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        outputMode |= Kernel32.ConsoleOutputModes.DISABLE_NEWLINE_AUTO_RETURN;
     }
 
     internal static class Kernel32

@@ -44,7 +44,7 @@ internal static partial class RawConsole
         }
     }
 
-    public static char? ReadKey()
+    public static char? ReadChar()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {

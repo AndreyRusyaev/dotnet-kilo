@@ -53,7 +53,7 @@ class Editor
         {
             RefreshScreen();
 
-            if (!ProcessKeyPress())
+            if (!ProcessTerminalEvent())
             {
                 break;
             }
@@ -65,10 +65,25 @@ class Editor
         screenRows = Console.WindowHeight - 2; // 2 additional lines used by status and message bar
         screenColumns = Console.WindowWidth;
 
-        Console.Write(VT100.SwitchToAlternateScreen());
-        Console.Write(VT100.SaveCursorPosition());
+        var builder = new StringBuilder();
+
+        builder.Append(VT100.SwitchToAlternateScreen());
+        builder.Append(VT100.SaveCursorPosition());
+        
+        Console.Write(builder.ToString());
 
         SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
+    }
+
+    void Restore()
+    {
+        var builder = new StringBuilder();
+
+        builder.Append(VT100.EraseDisplay(2));
+        builder.Append(VT100.RestoreCursorPosition());
+        builder.Append(VT100.SwitchToMainScreen());
+        
+        Console.Write(builder.ToString());
     }
 
     void SelectSyntax()
@@ -81,7 +96,7 @@ class Editor
         }
 
         editorSyntax = HighlightDatabase.ResolveSyntax(fileName);
-        
+
         foreach (var editorRow in editorRows)
         {
             UpdateSyntax(editorRow);
@@ -143,7 +158,7 @@ class Editor
         }
     }
 
-    void FindCallback(string query, int keyCode)
+    void FindCallback(string query, KeyEvent keyEvent)
     {
         if (findSavedLine != null)
         {
@@ -152,17 +167,17 @@ class Editor
             findSavedLine = null;
         }
 
-        if (keyCode == ExtendedKeyCodes.ENTER || keyCode == ExtendedKeyCodes.ESCAPE)
+        if (keyEvent.KeyCode == KeyCodes.Enter || keyEvent.KeyCode == KeyCodes.Escape)
         {
             findLastMatch = -1;
             findDirection = 1;
             return;
         }
-        else if (keyCode == ExtendedKeyCodes.ARROW_RIGHT || keyCode == ExtendedKeyCodes.ARROW_DOWN)
+        else if (keyEvent.KeyCode == KeyCodes.Right || keyEvent.KeyCode == KeyCodes.Down)
         {
             findDirection = 1;
         }
-        else if (keyCode == ExtendedKeyCodes.ARROW_LEFT || keyCode == ExtendedKeyCodes.ARROW_UP)
+        else if (keyEvent.KeyCode == KeyCodes.Left || keyEvent.KeyCode == KeyCodes.Up)
         {
             findDirection = -1;
         }
@@ -220,9 +235,10 @@ class Editor
             cursorPosX = savedCursorPosX;
             cursorPosY = savedCursorPosY;
             columnOffset = savedColumnOffset;
-            rowOffset = savedRowOffset;
-            return;
+            rowOffset = savedRowOffset;            
         }
+
+        SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
     }
 
     void RefreshScreen()
@@ -244,168 +260,104 @@ class Editor
         Console.Write(builder.ToString());
     }
 
-    string? Prompt(string messageFormat, Action<string, int>? callback = null)
+    string? Prompt(string messageFormat, Action<string, KeyEvent>? callback = null)
     {
-        StringBuilder result = new StringBuilder();
+        StringBuilder result = new StringBuilder();        
 
         while (true)
         {
             SetStatusMessage(string.Format(messageFormat, result.ToString()));
             RefreshScreen();
 
-            int keyCode = ReadKey();
-
-            if (keyCode == ExtendedKeyCodes.ESCAPE)
+            var terminalEvent = Terminal.ReadEvent();
+            switch (terminalEvent)
             {
-                SetStatusMessage("");
-                callback?.Invoke(result.ToString(), keyCode);
-                return null;
-            }
-            else if (keyCode == ExtendedKeyCodes.DEL_KEY || keyCode == ExtendedKeyCodes.CTRL_H || keyCode == ExtendedKeyCodes.BACKSPACE)
-            {
-                if (result.Length > 0)
-                {
-                    result.Remove(result.Length - 1, 1);
-                    callback?.Invoke(result.ToString(), keyCode);
-                }
-            }
-            else if (keyCode == ExtendedKeyCodes.ENTER)
-            {
-                if (result.Length > 0)
-                {
-                    SetStatusMessage("");
-                    callback?.Invoke(result.ToString(), keyCode);
-                    return result.ToString();
-                }
-            }
-            else
-            {
-                char keyChar = (char)keyCode;
-                if (!char.IsControl(keyChar))
-                {
-                    result.Append(keyChar);
-                }
-            }
-
-            callback?.Invoke(result.ToString(), keyCode);
-        }
-    }
-
-    int ReadKey()
-    {
-        while (true)
-        {
-            var keyCode = RawConsole.ReadKey();
-            if (keyCode == null)
-            {
-                Thread.Sleep(TimeSpan.FromMilliseconds(50));
-                continue;
-            }
-
-            if ((int)keyCode.Value == ExtendedKeyCodes.ESCAPE) // ESC sequence
-            {
-                var nextKey1 = RawConsole.ReadKey();
-                if (nextKey1 == null)
-                {
-                    return ExtendedKeyCodes.ESCAPE;
-                }
-
-                var nextKey2 = RawConsole.ReadKey();
-                if (nextKey2 == null)
-                {
-                    return ExtendedKeyCodes.ESCAPE;
-                }
-
-                if (nextKey1.Value == '[')
-                {
-                    if (nextKey2.Value >= '0' && nextKey2.Value <= '9')
+                case KeyEvent keyEvent:
                     {
-                        var nextKey3 = RawConsole.ReadKey();
-                        if (nextKey3 == null)
+                        if (keyEvent.KeyCode == KeyCodes.Escape)
                         {
-                            return ExtendedKeyCodes.ESCAPE;
+                            SetStatusMessage("");
+                            callback?.Invoke(result.ToString(), keyEvent);
+                            return null;
                         }
-
-                        if (nextKey3.Value == '~')
+                        else if (keyEvent.KeyCode == KeyCodes.Delete
+                            || (keyEvent.KeyCode == KeyCodes.H && keyEvent.KeyModifiers == KeyModifiers.Control)
+                            || keyEvent.KeyCode == KeyCodes.Backspace)
                         {
-                            switch (nextKey2.Value)
+                            if (result.Length > 0)
                             {
-                                case '1': return ExtendedKeyCodes.HOME_KEY;
-                                case '3': return ExtendedKeyCodes.DEL_KEY;
-                                case '4': return ExtendedKeyCodes.END_KEY;
-                                case '5': return ExtendedKeyCodes.PAGE_UP;
-                                case '6': return ExtendedKeyCodes.PAGE_DOWN;
-                                case '7': return ExtendedKeyCodes.HOME_KEY;
-                                case '8': return ExtendedKeyCodes.END_KEY;
+                                result.Remove(result.Length - 1, 1);
+                                callback?.Invoke(result.ToString(), keyEvent);
                             }
                         }
-                    }
-                    else
-                    {
-                        switch (nextKey2.Value)
+                        else if (keyEvent.KeyCode == KeyCodes.Enter)
                         {
-                            case 'A':
-                                return ExtendedKeyCodes.ARROW_UP;
-                            case 'B':
-                                return ExtendedKeyCodes.ARROW_DOWN;
-                            case 'C':
-                                return ExtendedKeyCodes.ARROW_RIGHT;
-                            case 'D':
-                                return ExtendedKeyCodes.ARROW_LEFT;
-                            case 'H':
-                                return ExtendedKeyCodes.HOME_KEY;
-                            case 'F':
-                                return ExtendedKeyCodes.END_KEY;
+                            if (result.Length > 0)
+                            {
+                                SetStatusMessage("");
+                                callback?.Invoke(result.ToString(), keyEvent);
+                                return result.ToString();
+                            }
                         }
-                    }
-                }
-                else if (nextKey1.Value == 'O')
-                {
-                    switch (nextKey2.Value)
-                    {
-                        case 'A': return ExtendedKeyCodes.ARROW_UP;
-                        case 'B': return ExtendedKeyCodes.ARROW_DOWN;
-                        case 'C': return ExtendedKeyCodes.ARROW_RIGHT;
-                        case 'D': return ExtendedKeyCodes.ARROW_LEFT;
-                        case 'H': return ExtendedKeyCodes.HOME_KEY;
-                        case 'F': return ExtendedKeyCodes.END_KEY;
-                    }
-                }
-            }
+                        else
+                        {
+                            if (keyEvent.KeyChar != null && !char.IsControl(keyEvent.KeyChar.Value))
+                            {
+                                result.Append(keyEvent.KeyChar.Value);
+                            }
+                        }
 
-            return keyCode.Value;
+                        callback?.Invoke(result.ToString(), keyEvent);
+                    }
+                    break;
+                default:
+                    // Unsupported event
+                    break;
+            }
         }
     }
 
-    bool ProcessKeyPress()
+    bool ProcessTerminalEvent()
     {
-        var keyCode = ReadKey();
-
-        switch (keyCode)
+        var terminalEvent = Terminal.ReadEvent();
+        switch (terminalEvent)
         {
-            case ExtendedKeyCodes.ENTER:
+            case KeyEvent keyEvent: 
+                return ProcessKeyPress(keyEvent);
+            default:
+                break;
+        }
+        
+        return true;
+    }
+
+    bool ProcessKeyPress(KeyEvent keyEvent)
+    {
+        switch (keyEvent.KeyCode)
+        {
+            case KeyCodes.Enter:
                 InsertNewLine();
                 break;
 
-            case ExtendedKeyCodes.BACKSPACE:
-            case ExtendedKeyCodes.CTRL_H:
-            case ExtendedKeyCodes.DEL_KEY:
-                if (keyCode == ExtendedKeyCodes.DEL_KEY)
+            case KeyCodes.Backspace:
+            case KeyCodes.H when keyEvent.KeyModifiers == KeyModifiers.Control:
+            case KeyCodes.Delete:
+                if (keyEvent.KeyCode == KeyCodes.Delete)
                 {
-                    MoveCursor(ExtendedKeyCodes.ARROW_RIGHT);
+                    MoveCursor(KeyCodes.Right);
                 }
                 RemoveChar();
                 break;
 
-            case ExtendedKeyCodes.CTRL_S:
+            case KeyCodes.S when keyEvent.KeyModifiers == KeyModifiers.Control:
                 Save();
                 break;
 
-            case ExtendedKeyCodes.CTRL_F:
+            case KeyCodes.F when keyEvent.KeyModifiers == KeyModifiers.Control:
                 Find();
                 break;
 
-            case ExtendedKeyCodes.CTRL_Q:
+            case KeyCodes.Q when keyEvent.KeyModifiers == KeyModifiers.Control:
                 {
                     if (dirty > 0 && quitRequestedCount > 0)
                     {
@@ -414,23 +366,18 @@ class Editor
                         return true;
                     }
 
-                    var builder = new StringBuilder();
-                    builder.Append(VT100.EraseDisplay(2));
-                    builder.Append(VT100.RestoreCursorPosition());
-                    builder.Append(VT100.SwitchToMainScreen());
-
-                    Console.Write(builder.ToString());
+                    Restore();
                     return false;
                 }
 
-            case ExtendedKeyCodes.PAGE_UP:
-            case ExtendedKeyCodes.PAGE_DOWN:
+            case KeyCodes.PageUp:
+            case KeyCodes.PageDown:
                 {
-                    if (keyCode == ExtendedKeyCodes.PAGE_UP)
+                    if (keyEvent.KeyCode == KeyCodes.PageUp)
                     {
                         cursorPosY = rowOffset;
                     }
-                    else if (keyCode == ExtendedKeyCodes.PAGE_DOWN)
+                    else if (keyEvent.KeyCode == KeyCodes.PageDown)
                     {
                         cursorPosY = rowOffset + screenRows - 1;
                         if (cursorPosY > editorRows.Count)
@@ -442,15 +389,15 @@ class Editor
                     int times = 0;
                     while (times++ < screenRows)
                     {
-                        MoveCursor(keyCode == ExtendedKeyCodes.PAGE_UP ? ExtendedKeyCodes.ARROW_UP : ExtendedKeyCodes.ARROW_DOWN);
+                        MoveCursor(keyEvent.KeyCode == KeyCodes.PageUp ? KeyCodes.Up : KeyCodes.Down);
                     }
                 }
                 break;
 
-            case ExtendedKeyCodes.HOME_KEY:
+            case KeyCodes.Home:
                 cursorPosX = 0;
                 break;
-            case ExtendedKeyCodes.END_KEY:
+            case KeyCodes.End:
                 if (cursorPosY < editorRows.Count)
                 {
                     var editorRow = editorRows[cursorPosY];
@@ -458,19 +405,22 @@ class Editor
                 }
                 break;
 
-            case ExtendedKeyCodes.ARROW_UP:
-            case ExtendedKeyCodes.ARROW_DOWN:
-            case ExtendedKeyCodes.ARROW_LEFT:
-            case ExtendedKeyCodes.ARROW_RIGHT:
-                MoveCursor(keyCode);
+            case KeyCodes.Up:
+            case KeyCodes.Down:
+            case KeyCodes.Left:
+            case KeyCodes.Right:
+                MoveCursor(keyEvent.KeyCode.Value);
                 break;
 
-            case ExtendedKeyCodes.CTRL_L:
-            case ExtendedKeyCodes.ESCAPE:
+            case KeyCodes.L when keyEvent.KeyModifiers == KeyModifiers.Control:
+            case KeyCodes.Escape:
                 break;
 
             default:
-                InsertChar((char)keyCode);
+                if (keyEvent.KeyChar != null)
+                {
+                    InsertChar(keyEvent.KeyChar.Value);
+                }
                 break;
         }
 
@@ -478,11 +428,11 @@ class Editor
         return true;
     }
 
-    void MoveCursor(int keyCode)
+    void MoveCursor(KeyCodes keyCode)
     {
         switch (keyCode)
         {
-            case ExtendedKeyCodes.ARROW_UP:
+            case KeyCodes.Up:
                 {
                     if (cursorPosY > 0)
                     {
@@ -490,7 +440,7 @@ class Editor
                     }
                     break;
                 }
-            case ExtendedKeyCodes.ARROW_DOWN:
+            case KeyCodes.Down:
                 {
                     if (cursorPosY + 1 < editorRows.Count)
                     {
@@ -498,7 +448,7 @@ class Editor
                     }
                     break;
                 }
-            case ExtendedKeyCodes.ARROW_LEFT:
+            case KeyCodes.Left:
                 {
                     if (cursorPosX > 0)
                     {
@@ -515,7 +465,7 @@ class Editor
                     }
                     break;
                 }
-            case ExtendedKeyCodes.ARROW_RIGHT:
+            case KeyCodes.Right:
                 {
                     if (cursorPosY < editorRows.Count)
                     {
@@ -654,7 +604,7 @@ class Editor
 
         var statusMessage = $"{statusFileName}{modifiedStatus} ({fileType})"
             + $", Lines {cursorPosY + 1}/{editorRows.Count}"
-            + $", Column {cursorPosX}"
+            + $", Column {cursorPosX + 1}"
             + $", screen={screenColumns}x{screenRows}, offset={columnOffset}x{rowOffset}";
 
         if (statusMessage.Length > screenColumns)
@@ -816,7 +766,7 @@ class Editor
         dirty += 1;
     }
 
-    private void UpdateSyntax(EditorRow editorRow)
+    void UpdateSyntax(EditorRow editorRow)
     {
         if (editorSyntax == null)
         {
@@ -832,9 +782,9 @@ class Editor
             var renderChar = editorRow.RenderChars[renderIndex];
             var prevHighlightMode = renderIndex > 0 ? editorRow.HighlightModes[renderIndex - 1] : HighlightMode.Normal;
 
-            if (editorSyntax.SingleLineCommentStart != null 
-                && editorSyntax.SingleLineCommentStart.Length > 0 
-                && isInString == null 
+            if (editorSyntax.SingleLineCommentStart != null
+                && editorSyntax.SingleLineCommentStart.Length > 0
+                && isInString == null
                 && !isInMultiLineComment)
             {
                 if (editorRow.StartsWithAtPosition(editorSyntax.SingleLineCommentStart, renderIndex))
@@ -950,7 +900,7 @@ class Editor
                     {
                         continue;
                     }
-                    
+
                     char? nextChar = renderIndex + keyword2.Length < editorRow.RenderChars.Count ? editorRow.RenderChars[renderIndex + keyword2.Length] : null;
                     if (nextChar == null || IsCharSeparator(nextChar.Value) || nextChar == '?')
                     {
@@ -980,10 +930,10 @@ class Editor
         }
     }
 
-    private bool IsCharSeparator(char ch)
+    bool IsCharSeparator(char ch)
     {
         return char.IsSeparator(ch) || ",.()+-/*=~%<>[];".IndexOf(ch) != -1;
-    }    
+    }
 
     VT100.GraphicRendition SyntaxToForegroundColor(HighlightMode highlightMode)
     {
