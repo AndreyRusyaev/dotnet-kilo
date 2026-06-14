@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 enum KeyCodes
 {
     Null,
@@ -278,114 +280,141 @@ static class Terminal
     {
         while (true)
         {
-            var keyCode = RawConsole.ReadChar();
-            if (keyCode == null)
+            if (TryReadEvent(out TerminalEvent? terminalEvent))
             {
-                Thread.Sleep(TimeSpan.FromMilliseconds(50));
-                continue;
+                return terminalEvent;
             }
             
-            if (keyCode.Value == 0)
-            {
-                return KeyEvent.FromKeyCode(KeyCodes.Space, KeyModifiers.Control);
-            }
-            else if (keyCode.Value == '\r')
-            {
-                return KeyEvent.FromKeyCode(KeyCodes.Enter);
-            }
-            else if (keyCode.Value == '\t')
-            {
-                return KeyEvent.FromKeyCode(KeyCodes.Tab);
-            }
-            else if (keyCode.Value == '\x1b') // ESC sequence
-            {
-                var nextKey1 = RawConsole.ReadChar();
-                if (nextKey1 == null)
-                {
-                    return KeyEvent.FromKeyCode(KeyCodes.Escape);
-                }
+            Thread.Sleep(TimeSpan.FromMilliseconds(50));
+        }
+    }
 
-                var nextKey2 = RawConsole.ReadChar();
-                if (nextKey2 == null)
-                {
-                    return KeyEvent.FromKeyCode(KeyCodes.Escape);
-                }
+    public static bool TryReadEvent([NotNullWhen(true)] out TerminalEvent? terminalEvent)
+    {   
+        terminalEvent = null;
 
-                if (nextKey1.Value == '[') // CSI sequence
+        var keyCode = RawConsole.ReadChar();
+        if (keyCode == null)
+        {
+            return false;
+        }
+        
+        if (keyCode.Value == 0)
+        {
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Space, KeyModifiers.Control);
+            return true;
+        }
+        else if (keyCode.Value == '\r')
+        {
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Enter);
+            return true;
+        }
+        else if (keyCode.Value == '\n')
+        {
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Enter);
+            return true;
+        }
+        else if (keyCode.Value == '\t')
+        {
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Tab);
+            return true;
+        }
+        else if (keyCode.Value == '\x1b') // ESC sequence
+        {
+            var nextKey1 = RawConsole.ReadChar();
+            if (nextKey1 == null)
+            {
+                terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Escape);
+                return true;
+            }
+
+            var nextKey2 = RawConsole.ReadChar();
+            if (nextKey2 == null)
+            {
+                terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Escape);
+                return true;
+            }
+
+            if (nextKey1.Value == '[') // CSI sequence
+            {
+                if (nextKey2.Value >= '0' && nextKey2.Value <= '9')
                 {
-                    if (nextKey2.Value >= '0' && nextKey2.Value <= '9')
+                    var nextKey3 = RawConsole.ReadChar();
+                    if (nextKey3 == null)
                     {
-                        var nextKey3 = RawConsole.ReadChar();
-                        if (nextKey3 == null)
-                        {
-                            return KeyEvent.FromKeyCode(KeyCodes.Escape);
-                        }
-
-                        if (nextKey3.Value == '~')
-                        {
-                            switch (nextKey2.Value)
-                            {
-                                case '1': return KeyEvent.FromKeyCode(KeyCodes.Home);
-                                case '2': return KeyEvent.FromKeyCode(KeyCodes.Insert);
-                                case '3': return KeyEvent.FromKeyCode(KeyCodes.Delete);
-                                case '4': return KeyEvent.FromKeyCode(KeyCodes.End);
-                                case '5': return KeyEvent.FromKeyCode(KeyCodes.PageUp);
-                                case '6': return KeyEvent.FromKeyCode(KeyCodes.PageDown);
-                                case '7': return KeyEvent.FromKeyCode(KeyCodes.Home);
-                                case '8': return KeyEvent.FromKeyCode(KeyCodes.End);
-                            }
-                        }
+                        terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Escape);
+                        return true;
                     }
-                    else
+
+                    if (nextKey3.Value == '~')
                     {
                         switch (nextKey2.Value)
                         {
-                            case 'A': return KeyEvent.FromKeyCode(KeyCodes.Up);
-                            case 'B': return KeyEvent.FromKeyCode(KeyCodes.Down);
-                            case 'C': return KeyEvent.FromKeyCode(KeyCodes.Right);
-                            case 'D': return KeyEvent.FromKeyCode(KeyCodes.Left);
-                            case 'H': return KeyEvent.FromKeyCode(KeyCodes.Home);
-                            case 'F': return KeyEvent.FromKeyCode(KeyCodes.End);
+                            case '1': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Home); return true;
+                            case '2': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Insert); return true;
+                            case '3': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Delete); return true;
+                            case '4': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.End); return true;
+                            case '5': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.PageUp); return true;
+                            case '6': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.PageDown); return true;
+                            case '7': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Home); return true;
+                            case '8': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.End); return true;
                         }
                     }
                 }
-                else if (nextKey1.Value == 'O')
+                else
                 {
                     switch (nextKey2.Value)
                     {
-                        case 'A': return KeyEvent.FromKeyCode(KeyCodes.Up);
-                        case 'B': return KeyEvent.FromKeyCode(KeyCodes.Down);
-                        case 'C': return KeyEvent.FromKeyCode(KeyCodes.Right);
-                        case 'D': return KeyEvent.FromKeyCode(KeyCodes.Left);
-                        case 'H': return KeyEvent.FromKeyCode(KeyCodes.Home);
-                        case 'F': return KeyEvent.FromKeyCode(KeyCodes.End);
+                        case 'A': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Up); return true;
+                        case 'B': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Down); return true;
+                        case 'C': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Right); return true;
+                        case 'D': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Left); return true;
+                        case 'H': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Home); return true;
+                        case 'F': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.End); return true;
                     }
                 }
-                else if (nextKey1.Value == '\x1b')
+            }
+            else if (nextKey1.Value == 'O')
+            {
+                switch (nextKey2.Value)
                 {
-                    // TODO: ALT modifier
+                    case 'A': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Up); return true;
+                    case 'B': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Down); return true;
+                    case 'C': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Right); return true;
+                    case 'D': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Left); return true;
+                    case 'H': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Home); return true;
+                    case 'F': terminalEvent = KeyEvent.FromKeyCode(KeyCodes.End); return true;
                 }
-
-                // TODO: Unrecognized sequence
-                return KeyEvent.FromKeyCode(KeyCodes.Escape);
             }
-            else if (keyCode.Value <= 0x1a)
+            else if (nextKey1.Value == '\x1b')
             {
-                // CTRL + A, ..., CTRL + Z (except CTRL + I and CTRL + M)
-                return KeyEvent.FromChar((char)(keyCode.Value - 1 + 'a'), KeyModifiers.Control);
-            }
-            else if (keyCode.Value >= 0x1c && keyCode.Value <= 0x1f)
-            {
-                // CTRL + 4, CTRL + 5, CTRL + 6, CTRL + 7
-                // CTRL + /, CTRL + ], CTRL + ~, CTRL + ?
-                return KeyEvent.FromChar((char)(keyCode.Value - 0x1c + '4'), KeyModifiers.Control);
-            }
-            else if (keyCode.Value == 0x7f)
-            {
-                return KeyEvent.FromKeyCode(KeyCodes.Backspace);
+                // TODO: ALT modifier
             }
 
-            return KeyEvent.FromChar(keyCode.Value);
+            // TODO: Unrecognized sequence
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Escape);
+            return true;
         }
+        else if (keyCode.Value <= 0x1a)
+        {
+            // CTRL + A, ..., CTRL + Z (except CTRL + I and CTRL + M)
+            terminalEvent = KeyEvent.FromChar((char)(keyCode.Value - 1 + 'a'), KeyModifiers.Control);
+            return true;
+        }
+        else if (keyCode.Value >= 0x1c && keyCode.Value <= 0x1f)
+        {
+            // CTRL + 4, CTRL + 5, CTRL + 6, CTRL + 7
+            // CTRL + /, CTRL + ], CTRL + ~, CTRL + ?
+            terminalEvent = KeyEvent.FromChar((char)(keyCode.Value - 0x1c + '4'), KeyModifiers.Control);
+            return true;
+        }
+        else if (keyCode.Value == 0x7f)
+        {
+            terminalEvent = KeyEvent.FromKeyCode(KeyCodes.Backspace);
+            return true;
+        }
+
+        terminalEvent = KeyEvent.FromChar(keyCode.Value);
+        return true;
     }
 }
