@@ -18,7 +18,7 @@ class Editor
 
     string? statusMessage;
 
-    List<EditorRow> editorRows = new List<EditorRow>();
+    List<EditorRow> editorRows = new();
 
     int dirty;
 
@@ -69,7 +69,7 @@ class Editor
 
         builder.Append(VT100.SwitchToAlternateScreen());
         builder.Append(VT100.SaveCursorPosition());
-        
+
         Console.Write(builder.ToString());
 
         SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
@@ -82,7 +82,7 @@ class Editor
         builder.Append(VT100.EraseDisplay(2));
         builder.Append(VT100.RestoreCursorPosition());
         builder.Append(VT100.SwitchToMainScreen());
-        
+
         Console.Write(builder.ToString());
     }
 
@@ -139,7 +139,7 @@ class Editor
             SelectSyntax();
         }
 
-        StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new();
         for (var rowIndex = 0; rowIndex < editorRows.Count; rowIndex += 1)
         {
             builder.Append(editorRows[rowIndex].Chars.ToArray());
@@ -235,7 +235,7 @@ class Editor
             cursorPosX = savedCursorPosX;
             cursorPosY = savedCursorPosY;
             columnOffset = savedColumnOffset;
-            rowOffset = savedRowOffset;            
+            rowOffset = savedRowOffset;
         }
 
         SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
@@ -245,7 +245,7 @@ class Editor
     {
         Scroll();
 
-        StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new();
 
         builder.Append(VT100.HideCursor());
         builder.Append(VT100.SetCursorPosition(1, 1));
@@ -262,7 +262,7 @@ class Editor
 
     string? Prompt(string messageFormat, Action<string, KeyTerminalEvent>? callback = null)
     {
-        StringBuilder result = new StringBuilder();        
+        StringBuilder result = new();
 
         while (true)
         {
@@ -272,44 +272,43 @@ class Editor
             var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
             switch (terminalEvent)
             {
-                case KeyTerminalEvent keyEvent:
+                case KeyTerminalEvent keyEvent when keyEvent.KeyCode == KeyCodes.Escape:
                     {
-                        if (keyEvent.KeyCode == KeyCodes.Escape)
+                        SetStatusMessage("");
+                        callback?.Invoke(result.ToString(), keyEvent);
+                        return null;
+                    }
+                case KeyTerminalEvent keyEvent when keyEvent.KeyCode == KeyCodes.Delete
+                            || (keyEvent.KeyCode == KeyCodes.H && keyEvent.KeyModifiers == KeyModifiers.Control)
+                            || keyEvent.KeyCode == KeyCodes.Backspace:
+                    {
+                        if (result.Length > 0)
+                        {
+                            result.Remove(result.Length - 1, 1);
+                        }
+                        callback?.Invoke(result.ToString(), keyEvent);
+                        break;
+                    }
+                case KeyTerminalEvent keyEvent when keyEvent.KeyCode == KeyCodes.Enter:
+                    {
+                        if (result.Length > 0)
                         {
                             SetStatusMessage("");
-                            callback?.Invoke(result.ToString(), keyEvent);
-                            return null;
                         }
-                        else if (keyEvent.KeyCode == KeyCodes.Delete
-                            || (keyEvent.KeyCode == KeyCodes.H && keyEvent.KeyModifiers == KeyModifiers.Control)
-                            || keyEvent.KeyCode == KeyCodes.Backspace)
+                        callback?.Invoke(result.ToString(), keyEvent);
+                        return result.ToString();
+                    }
+                case KeyTerminalEvent keyEvent:
+                    {
+                        if (keyEvent.KeyChar != null && !char.IsControl(keyEvent.KeyChar.Value))
                         {
-                            if (result.Length > 0)
-                            {
-                                result.Remove(result.Length - 1, 1);
-                                callback?.Invoke(result.ToString(), keyEvent);
-                            }
-                        }
-                        else if (keyEvent.KeyCode == KeyCodes.Enter)
-                        {
-                            if (result.Length > 0)
-                            {
-                                SetStatusMessage("");
-                                callback?.Invoke(result.ToString(), keyEvent);
-                                return result.ToString();
-                            }
-                        }
-                        else
-                        {
-                            if (keyEvent.KeyChar != null && !char.IsControl(keyEvent.KeyChar.Value))
-                            {
-                                result.Append(keyEvent.KeyChar.Value);
-                            }
+                            result.Append(keyEvent.KeyChar.Value);
                         }
 
                         callback?.Invoke(result.ToString(), keyEvent);
+                        break;
                     }
-                    break;
+                    
                 default:
                     // Unsupported event
                     break;
@@ -322,12 +321,12 @@ class Editor
         var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
         switch (terminalEvent)
         {
-            case KeyTerminalEvent keyEvent: 
+            case KeyTerminalEvent keyEvent:
                 return ProcessKeyPress(keyEvent);
             default:
                 break;
         }
-        
+
         return true;
     }
 

@@ -9,9 +9,9 @@ internal static class RawConsoleMac
 
     private static Libc.Termios originalTermios;
 
-    private static StdinReader stdinReader = new StdinReader(Console.InputEncoding);
+    private static StdinReader stdinReader = new(Console.InputEncoding);
 
-    private static Action atExitDelegate = new Action(DisableRawMode);
+    private static Action atExitDelegate = new(DisableRawMode);
 
     public static char? ReadKey()
     {

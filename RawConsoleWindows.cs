@@ -79,7 +79,7 @@ internal static class RawConsoleWindows
     {
         var stdIn = Kernel32.GetStdHandle(Kernel32.STD_INPUT_HANDLE);
 
-        Kernel32.INPUT_RECORD winInputRecord = new Kernel32.INPUT_RECORD();
+        Kernel32.INPUT_RECORD winInputRecord = new();
 
         while (true)
         {

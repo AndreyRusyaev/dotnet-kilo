@@ -2,9 +2,9 @@ class EditorRow
 {
     private readonly EditorSettings editorSettings;
 
-    private readonly List<char> rawChars = new List<char>();
+    private readonly List<char> rawChars = new();
 
-    private readonly List<char> renderChars = new List<char>();
+    private readonly List<char> renderChars = new();
 
     private HighlightMode[] highlightModes = Array.Empty<HighlightMode>();
 
