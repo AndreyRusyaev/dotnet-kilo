@@ -8,19 +8,19 @@ Works in Linux, MacOS and Windows terminals (sh, bash, zsh, cmd, powershell, etc
 
 ## Prerequisites
 
-* .NET 8.0 or later
+* .NET 10.0 or later
 ``` shell
 dotnet --version
-# Expected output: 8.0.X
+# Expected output: 10.0.X
 ```
 
 <details>
-  <summary>HOWTO: Install .NET 8 on Windows, Linux, and macOS</summary>
+  <summary>HOWTO: Install .NET 10 on Windows, Linux, and macOS</summary>
   
 ### Windows
 ``` shell
 # run in elevated shell
-winget install Microsoft.DotNet.SDK.8
+winget install Microsoft.DotNet.SDK.10
 ```
 
 ### Ubuntu
@@ -31,7 +31,7 @@ sudo dpkg -i packages-microsoft-prod.deb
 rm packages-microsoft-prod.deb
 
 # installation
-sudo apt update && sudo apt-get install -y dotnet-sdk-8.0
+sudo apt update && sudo apt-get install -y dotnet-sdk-10.0
 ```
 
 ### MacOS

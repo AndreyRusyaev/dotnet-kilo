@@ -158,7 +158,7 @@ class Editor
         }
     }
 
-    void FindCallback(string query, KeyEvent keyEvent)
+    void FindCallback(string query, KeyTerminalEvent keyEvent)
     {
         if (findSavedLine != null)
         {
@@ -260,7 +260,7 @@ class Editor
         Console.Write(builder.ToString());
     }
 
-    string? Prompt(string messageFormat, Action<string, KeyEvent>? callback = null)
+    string? Prompt(string messageFormat, Action<string, KeyTerminalEvent>? callback = null)
     {
         StringBuilder result = new StringBuilder();        
 
@@ -269,10 +269,10 @@ class Editor
             SetStatusMessage(string.Format(messageFormat, result.ToString()));
             RefreshScreen();
 
-            var terminalEvent = Terminal.ReadEvent();
+            var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
             switch (terminalEvent)
             {
-                case KeyEvent keyEvent:
+                case KeyTerminalEvent keyEvent:
                     {
                         if (keyEvent.KeyCode == KeyCodes.Escape)
                         {
@@ -319,10 +319,10 @@ class Editor
 
     bool ProcessTerminalEvent()
     {
-        var terminalEvent = Terminal.ReadEvent();
+        var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
         switch (terminalEvent)
         {
-            case KeyEvent keyEvent: 
+            case KeyTerminalEvent keyEvent: 
                 return ProcessKeyPress(keyEvent);
             default:
                 break;
@@ -331,7 +331,7 @@ class Editor
         return true;
     }
 
-    bool ProcessKeyPress(KeyEvent keyEvent)
+    bool ProcessKeyPress(KeyTerminalEvent keyEvent)
     {
         switch (keyEvent.KeyCode)
         {
