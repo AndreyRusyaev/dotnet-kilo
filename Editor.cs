@@ -2,6 +2,8 @@ using System.Text;
 
 class Editor
 {
+    Terminal terminal;
+
     EditorSettings editorSettings;
 
     string? fileName;
@@ -30,8 +32,9 @@ class Editor
 
     int? findSavedLine = null;
 
-    public Editor(EditorSettings editorSettings)
+    public Editor(Terminal terminal, EditorSettings editorSettings)
     {
+        this.terminal = terminal;
         this.editorSettings = editorSettings;
 
         this.quitRequestedCount = editorSettings.KILO_QUIT_TIMES;
@@ -62,17 +65,17 @@ class Editor
 
     void Init()
     {
-        screenRows = Console.WindowHeight - 2; // 2 additional lines used by status and message bar
-        screenColumns = Console.WindowWidth;
+        screenRows = terminal.Rows - 2; // 2 additional lines used by status and message bar
+        screenColumns = terminal.Columns;
 
         var builder = new StringBuilder();
 
         builder.Append(VT100.SwitchToAlternateScreen());
         builder.Append(VT100.SaveCursorPosition());
 
-        Console.Write(builder.ToString());
+        terminal.Write(builder.ToString());
 
-        SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
+        SetDefaultStatusMessage();
     }
 
     void Restore()
@@ -83,7 +86,7 @@ class Editor
         builder.Append(VT100.RestoreCursorPosition());
         builder.Append(VT100.SwitchToMainScreen());
 
-        Console.Write(builder.ToString());
+        terminal.Write(builder.ToString());
     }
 
     void SelectSyntax()
@@ -238,7 +241,7 @@ class Editor
             rowOffset = savedRowOffset;
         }
 
-        SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
+        SetDefaultStatusMessage();
     }
 
     void RefreshScreen()
@@ -257,7 +260,7 @@ class Editor
         builder.Append(VT100.SetCursorPosition(renderPosY - rowOffset + 1, renderPosX - columnOffset + 1));
         builder.Append(VT100.ShowCursor());
 
-        Console.Write(builder.ToString());
+        terminal.Write(builder.ToString());
     }
 
     string? Prompt(string messageFormat, Action<string, KeyTerminalEvent>? callback = null)
@@ -269,7 +272,7 @@ class Editor
             SetStatusMessage(string.Format(messageFormat, result.ToString()));
             RefreshScreen();
 
-            var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
+            var terminalEvent = terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
             switch (terminalEvent)
             {
                 case KeyTerminalEvent keyEvent when keyEvent.KeyCode == KeyCodes.Escape:
@@ -318,7 +321,7 @@ class Editor
 
     bool ProcessTerminalEvent()
     {
-        var terminalEvent = Terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
+        var terminalEvent = terminal.WaitEvent(TimeSpan.FromMilliseconds(50));
         switch (terminalEvent)
         {
             case KeyTerminalEvent keyEvent:
@@ -423,6 +426,7 @@ class Editor
                 break;
         }
 
+        SetDefaultStatusMessage();
         quitRequestedCount = editorSettings.KILO_QUIT_TIMES;
         return true;
     }
@@ -521,6 +525,11 @@ class Editor
         {
             columnOffset = renderPosX - screenColumns + 1;
         }
+    }
+
+    void SetDefaultStatusMessage()
+    {
+        SetStatusMessage("HELP: Ctrl+Q = quit | Ctrl+S = save | Ctrl+F = find");
     }
 
     void SetStatusMessage(string newMessage)

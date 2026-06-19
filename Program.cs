@@ -1,11 +1,8 @@
 ﻿Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-using var _ = Terminal.EnableRawMode();
+var terminal = Terminal.Current;
 
-while (Terminal.TryReadEvent(out var _))
-{
-    // Clear any pending input events after enabling raw mode.
-}
+using var _ = terminal.EnableRawMode();
 
-var editor = new Editor(new EditorSettings());
+var editor = new Editor(terminal, new EditorSettings());
 editor.Start(args.Length > 0 ? args[0] : null);

@@ -1,13 +1,30 @@
 using System.Diagnostics.CodeAnalysis;
 
-static class Terminal
+sealed class Terminal
 {
-    public static IDisposable EnableRawMode()
+    private Terminal()
     {
-        return RawConsole.EnableRawMode();
     }
 
-    public static TerminalEvent WaitEvent(TimeSpan pollInterval)
+    public static Terminal Current { get; } = new Terminal();
+
+     public int Rows => Console.WindowHeight;
+
+     public int Columns => Console.WindowWidth;
+
+    public IDisposable EnableRawMode()
+    {
+        var disposable = RawConsole.EnableRawMode();
+
+        while (TryReadEvent(out var _))
+        {
+            // Clear any pending input events after enabling raw mode.
+        }
+
+        return disposable;
+    }
+
+    public TerminalEvent WaitEvent(TimeSpan pollInterval)
     {
         while (true)
         {
@@ -20,7 +37,7 @@ static class Terminal
         }
     }
 
-    public static bool TryReadEvent([NotNullWhen(true)] out TerminalEvent? terminalEvent)
+    public bool TryReadEvent([NotNullWhen(true)] out TerminalEvent? terminalEvent)
     {   
         terminalEvent = null;
 
@@ -147,5 +164,11 @@ static class Terminal
 
         terminalEvent = KeyTerminalEvent.FromChar(keyCode.Value);
         return true;
+    }
+
+
+    public void Write(string text)
+    {
+        Console.Write(text);
     }
 }
